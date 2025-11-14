@@ -1,17 +1,37 @@
-exports.validateURL = (url) => {
-    const regex = /(https?:\/\/)?([\w\-])+\.([\w\-])+[\w\-\._~:/?#[\]@!$&'()*+,;=.]+/;
-    return regex.test(url);
-};
+// utils/urlChecks.js
 
-exports.checkHTTPS = (url) => url.startsWith("https://");
+// Example blacklist
+const blacklist = ["malicious.com", "phishy.net", "fakebank.org"];
 
-exports.checkLength = (url) => {
-    if (url.length > 75) return "long";
-    if (url.length > 40) return "medium";
-    return "short";
-};
+// Check if URL is phishing
+function checkPhishing(urlObj) {
+    let isPhishing = false;
+    let reason = "";
 
-exports.detectSuspiciousChars = (url) => {
-    const suspicious = ["@", "%", "$", "<", ">", "?", "=", "\\"];
-    return suspicious.filter(char => url.includes(char));
-};
+    if (blacklist.includes(urlObj.hostname)) {
+        isPhishing = true;
+        reason = "URL is blacklisted.";
+    } 
+    else if (urlObj.hostname.split("-").length > 2) {
+        isPhishing = true;
+        reason = "Suspicious domain format.";
+    } 
+    else if (/^\d{1,3}(\.\d{1,3}){3}$/.test(urlObj.hostname)) {
+        isPhishing = true;
+        reason = "IP address used as hostname.";
+    }
+
+    return { isPhishing, reason };
+}
+
+// Native URL validation
+function isValidUrl(url) {
+    try {
+        new URL(url); // Will throw if invalid
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+module.exports = { checkPhishing, isValidUrl };

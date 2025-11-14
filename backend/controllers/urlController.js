@@ -1,30 +1,36 @@
-const { validateURL, checkHTTPS, checkLength, detectSuspiciousChars } = require("../utils/urlChecks");
+// controllers/urlController.js
 
-exports.analyseURL = (req, res) => {
+const { checkPhishing, isValidUrl } = require("../utils/urlChecks");
+
+exports.checkUrl = (req, res) => {
     const { url } = req.body;
 
-    if (!url) return res.json({ error: "URL is required" });
+    // Validate URL using native JS
+    if (!url || !isValidUrl(url)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid URL format."
+        });
+    }
 
-    const result = {
-        valid: validateURL(url),
-        https: checkHTTPS(url),
-        length: checkLength(url),
-        suspiciousChars: detectSuspiciousChars(url),
+    // Parse URL
+    const urlObj = new URL(url);
+    const components = {
+        protocol: urlObj.protocol,
+        hostname: urlObj.hostname,
+        pathname: urlObj.pathname,
+        search: urlObj.search
     };
 
-    let score = 0;
-    if (!result.https) score += 20;
-    if (result.length === "long") score += 20;
-    if (result.suspiciousChars.length > 0) score += 40;
+    // Check phishing
+    const { isPhishing, reason } = checkPhishing(urlObj);
 
-    let status = "SAFE";
-    if (score >= 40) status = "SUSPICIOUS";
-    if (score >= 60) status = "PHISHING";
-
+    // Send JSON response
     res.json({
+        success: true,
         url,
-        analysis: result,
-        score,
-        status
+        components,
+        isPhishing,
+        reason: isPhishing ? reason : "No obvious phishing detected."
     });
 };

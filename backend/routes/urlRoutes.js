@@ -1,8 +1,9 @@
+// routes/urlRoutes.js
+
 const express = require("express");
-const { analyseURL } = require("../controllers/urlController");
-
 const router = express.Router();
+const { checkUrl } = require("../controllers/urlController");
 
-router.post("/analyse", analyseURL);
+router.post("/check-url", checkUrl);
 
 module.exports = router;
