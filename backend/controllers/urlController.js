@@ -5,6 +5,7 @@ const { checkPhishing, isValidUrl } = require("../utils/urlChecks");
 exports.checkUrl = (req, res) => {
     const { url } = req.body;
 
+    // 
     // Validate URL using native JS
     if (!url || !isValidUrl(url)) {
         return res.status(400).json({
@@ -33,4 +34,17 @@ exports.checkUrl = (req, res) => {
         isPhishing,
         reason: isPhishing ? reason : "No obvious phishing detected."
     });
+
+    let processedUrl = url;
+if (!/^https?:\/\//i.test(url)) {
+    processedUrl = "http://" + url;
+}
+
+try {
+    const urlObj = new URL(processedUrl);
+    // continue with phishing check...
+} catch {
+    return res.status(400).json({ success: false, message: "Invalid URL format." });
+}
+
 };
