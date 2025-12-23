@@ -46,3 +46,9 @@ Thumbs.db
 
 # Coverage reports
 coverage/
+
+
+.env
+__pycache__/
+*.pkl
+

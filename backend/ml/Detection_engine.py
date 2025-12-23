@@ -1,12 +1,24 @@
+import os
+import re
 import pandas as pd
 import numpy as np
 import joblib
 import tldextract
-import re
-import os
 import difflib
 import requests
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+# -----------------------------
+# Load environment variables
+# -----------------------------
+load_dotenv()  # Loads .env file in same directory
+
+VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
+
+if not VIRUSTOTAL_API_KEY or not ABUSEIPDB_API_KEY:
+    raise RuntimeError("API keys not found. Please set them in the .env file.")
 
 # -----------------------------
 # Paths
@@ -14,17 +26,17 @@ from urllib.parse import urlparse
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "Datasets_for_fyp")
 
-MODEL_PATH = os.path.join(DATASET_DIR, "rf_model.pkl")
+RF_MODEL_PATH = os.path.join(DATASET_DIR, "rf_model.pkl")
 SCALER_PATH = os.path.join(DATASET_DIR, "scaler.pkl")
 FEATURES_PATH = os.path.join(DATASET_DIR, "features.pkl")
 
 # -----------------------------
-# Load Model, Scaler, Features
+# Load ML model, scaler, features
 # -----------------------------
-clf = joblib.load(MODEL_PATH)
+clf_rf = joblib.load(RF_MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 features = joblib.load(FEATURES_PATH)
-print("Model, scaler, and features loaded successfully.\n")
+print("Random Forest model, scaler, and feature list loaded.\n")
 
 # -----------------------------
 # Whitelist and popular domains
@@ -37,19 +49,25 @@ WHITELIST = [
 POPULAR_DOMAINS = WHITELIST.copy()
 
 # -----------------------------
-# API Keys (replace with your keys)
+# Suspicious keywords
 # -----------------------------
-VIRUSTOTAL_API_KEY = "8e79b36411bc0de69f9c4f68f33a224e121d0bfeb733e851ea24cc52fd8cbc73"
-ABUSEIPDB_API_KEY = "94c81c286a618b02f402b2f7a7eed6aafba4ca96ae835b18cf131aaefe73ee82445b666363b0c9b8"
+SUSPICIOUS_KEYWORDS = ["secure","account","login","update","verify","bank","free","lucky"]
 
 # -----------------------------
-# Helper Functions
+# Helper functions
 # -----------------------------
-def safe_str(s): return str(s) if pd.notnull(s) else ""
+def safe_str(s): 
+    return str(s) if pd.notnull(s) else ""
 
 def extract_domain(url):
     try:
         return tldextract.extract(safe_str(url)).top_domain_under_public_suffix
+    except:
+        return ""
+
+def extract_subdomain(url):
+    try:
+        return tldextract.extract(safe_str(url)).subdomain
     except:
         return ""
 
@@ -61,6 +79,42 @@ def extract_ip(url):
     except:
         return None
 
+# -----------------------------
+# Rule-based feature scoring
+# -----------------------------
+def compute_rule_based_score(url):
+    score = 0
+    url_lower = safe_str(url).lower()
+    
+    # URL length
+    score += 1 if len(url) > 75 else 0
+    
+    # Dots, hyphens, slashes
+    score += 1 if url.count('.') > 3 else 0
+    score += 1 if url.count('-') > 2 else 0
+    score += 1 if url.count('/') > 3 else 0
+    
+    # Suspicious keywords
+    score += sum(1 for kw in SUSPICIOUS_KEYWORDS if kw in url_lower)
+    
+    # IP address in URL
+    if re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", url): score += 2
+    
+    # Multiple subdomains
+    if extract_subdomain(url).count('.') >= 2: score += 1
+    
+    # Shortened URLs
+    for s in ["bit.ly","tinyurl","goo.gl","t.co","ow.ly"]:
+        if s in url_lower: score += 1
+    
+    # Encoded URL
+    if '%' in url: score += 1
+    
+    return score
+
+# -----------------------------
+# Typosquatting detection
+# -----------------------------
 def is_typosquatting(domain):
     for popular in POPULAR_DOMAINS:
         similarity = difflib.SequenceMatcher(None, domain, popular).ratio()
@@ -69,102 +123,99 @@ def is_typosquatting(domain):
     return False
 
 # -----------------------------
-# Threat Intelligence API Checks
+# Threat intelligence APIs
 # -----------------------------
 def check_virustotal(url):
-    """Check URL with VirusTotal API"""
     try:
         headers = {"x-apikey": VIRUSTOTAL_API_KEY}
-        params = {"url": url}
-        response = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data=params)
+        data = {"url": url}
+        response = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data=data)
         if response.status_code == 200:
             json_data = response.json()
-            # For simplicity, check if any engine flagged it as malicious
             stats = json_data.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
-            if stats.get("malicious", 0) > 0:
-                return True
-        return False
+            return stats.get("malicious", 0) > 0
     except Exception as e:
         print(f"VirusTotal API error: {e}")
-        return False
+    return False
 
 def check_abuseipdb(url):
-    """Check resolved IP with AbuseIPDB"""
     ip = extract_ip(url)
-    if not ip:
-        return False
+    if not ip: return False
     try:
         headers = {"Key": ABUSEIPDB_API_KEY, "Accept": "application/json"}
         params = {"ipAddress": ip}
         response = requests.get("https://api.abuseipdb.com/api/v2/check", headers=headers, params=params)
         if response.status_code == 200:
             data = response.json()
-            if data.get("data", {}).get("abuseConfidenceScore", 0) > 50:
-                return True
-        return False
+            return data.get("data", {}).get("abuseConfidenceScore", 0) > 50
     except Exception as e:
         print(f"AbuseIPDB API error: {e}")
-        return False
+    return False
 
 # -----------------------------
-# Random Forest + Typosquatting Features
+# ML feature extraction
 # -----------------------------
 def extract_features(url):
-    url_length = len(url)
-    count_dots = url.count('.')
-    count_hyphens = url.count('-')
-    count_slashes = url.count('/')
-    count_at = url.count('@')
-    count_question = url.count('?')
-    count_equal = url.count('=')
-    digit_count = sum(c.isdigit() for c in url)
-    letter_count = sum(c.isalpha() for c in url)
-    special_chars = len(re.findall(r"[^A-Za-z0-9]", url))
-    domain_len = len(extract_domain(url))
-    subdomain_len = len(tldextract.extract(url).subdomain)
-    multiple_subdomains = 1 if tldextract.extract(url).subdomain.count('.') >= 2 else 0
-    https_flag = 1 if url.startswith("https") else 0
-    encoded_url = 1 if "%" in url else 0
-    return pd.DataFrame([{
-        "url_length": url_length, "count_dots": count_dots,
-        "count_hyphens": count_hyphens, "count_slash": count_slashes,
-        "count_at": count_at, "count_question": count_question,
-        "count_equal": count_equal, "digit_count": digit_count,
-        "letter_count": letter_count, "special_chars": special_chars,
-        "domain_length": domain_len, "subdomain_length": subdomain_len,
-        "multiple_subdomains": multiple_subdomains, "https_flag": https_flag,
-        "encoded_url": encoded_url
-    }], columns=features)
+    data = {}
+    data["url_length"] = len(url)
+    data["count_dots"] = url.count('.')
+    data["count_hyphens"] = url.count('-')
+    data["count_slash"] = url.count('/')
+    data["count_at"] = url.count('@')
+    data["count_question"] = url.count('?')
+    data["count_equal"] = url.count('=')
+    data["digit_count"] = sum(c.isdigit() for c in url)
+    data["letter_count"] = sum(c.isalpha() for c in url)
+    data["special_chars"] = len(re.findall(r"[^A-Za-z0-9]", url))
+    data["has_ip"] = 1 if re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", url) else 0
+    data["https_flag"] = 1 if url.startswith("https") else 0
+    data["encoded_url"] = 1 if "%" in url else 0
+    data["domain_length"] = len(extract_domain(url))
+    data["subdomain_length"] = len(extract_subdomain(url))
+    data["multiple_subdomains"] = 1 if extract_subdomain(url).count('.') >= 2 else 0
+    data["suspicious_words"] = sum(1 for kw in SUSPICIOUS_KEYWORDS if kw in url.lower())
+    data["shortening_service"] = 1 if any(s in url.lower() for s in ["bit.ly","tinyurl","goo.gl","t.co","ow.ly"]) else 0
+    return pd.DataFrame([data], columns=features)
 
 # -----------------------------
-# Main Classification Function
+# Main classification
 # -----------------------------
-def classify_url(url, threshold_suspicious=0.4, threshold_phishing=0.7):
+def classify_url(url):
     domain = extract_domain(url)
-
+    
     # 1. Whitelist
     if domain in WHITELIST:
-        return "Legitimate", 0.0
-
+        return "Safe", 0.0
+    
     # 2. Typosquatting
     if is_typosquatting(domain):
         return "Suspicious", 0.5
-
-    # 3. Threat Intelligence APIs
+    
+    # 3. Threat Intelligence
     if check_virustotal(url) or check_abuseipdb(url):
-        return "Phishing/Malicious", 1.0
-
-    # 4. Random Forest Model
+        return "Malicious", 1.0
+    
+    # 4. Rule-based score
+    rule_score = compute_rule_based_score(url)
+    
+    # 5. ML prediction
     df_features = extract_features(url)
     X_scaled = scaler.transform(df_features)
-    prob = clf.predict_proba(X_scaled)[0][1]
-
-    if prob >= threshold_phishing:
-        return "Phishing/Malicious", prob
-    elif prob >= threshold_suspicious:
-        return "Suspicious", prob
+    ml_prob = clf_rf.predict_proba(X_scaled)[0][1]
+    
+    # 6. Combine scores
+    combined_score = (rule_score * 0.2) + (ml_prob * 0.6)
+    combined_score = min(combined_score, 1.0)
+    
+    # 7. Final classification
+    if combined_score >= 0.7:
+        classification = "Malicious"
+    elif combined_score >= 0.4:
+        classification = "Suspicious"
     else:
-        return "Legitimate", prob
+        classification = "Safe"
+    
+    return classification, combined_score
 
 # -----------------------------
 # Interactive CLI
@@ -174,8 +225,8 @@ if __name__ == "__main__":
         url = input("Enter URL to classify (or type 'exit' to quit): ").strip()
         if url.lower() == "exit":
             break
-        prediction, prob = classify_url(url)
+        cls, score = classify_url(url)
         print("\n==============================")
         print(f"URL: {url}")
-        print(f"Prediction: {prediction}")
-        print(f"Probability: {prob:.4f}\n")
+        print(f"Threat Score: {score:.4f}")
+        print(f"Classification: {cls}\n")
