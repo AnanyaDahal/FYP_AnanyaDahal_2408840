@@ -1,170 +1,158 @@
 import os
 import re
 import math
+import time
 import pandas as pd
-import numpy as np
 import joblib
 import tldextract
 import requests
 import difflib
+import logging
+import hashlib
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
-# -----------------------------
-# 1. SETUP & CONFIGURATION
-# -----------------------------
+# --- 1. SETUP ---
 load_dotenv()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY")
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
 
-# Paths (Ensure these files exist in your Datasets_for_fyp folder)
+# Resource Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "Datasets_for_fyp")
 RF_MODEL_PATH = os.path.join(DATASET_DIR, "rf_model.pkl")
 SCALER_PATH = os.path.join(DATASET_DIR, "scaler.pkl")
 FEATURES_LIST_PATH = os.path.join(DATASET_DIR, "features.pkl")
 
-# Load Models
+# Load ML components
 try:
     clf_rf = joblib.load(RF_MODEL_PATH)
     scaler = joblib.load(SCALER_PATH)
     trained_features = joblib.load(FEATURES_LIST_PATH)
-    print("ML Components Loaded Successfully.")
+    print(" Advanced Risk Engine Online.")
 except Exception as e:
     print(f"Error loading models: {e}")
     exit()
 
-# Reference Lists
-WHITELIST = ["google.com", "microsoft.com", "apple.com", "amazon.com", "paypal.com", "facebook.com"]
-SUSPICIOUS_KEYWORDS = ["secure", "account", "update", "login", "verify", "banking", "free", "lucky"]
+# --- 2. ENHANCED DEFINITIONS ---
+WHITELIST = [
+    "google.com", "microsoft.com", "apple.com", "amazon.com", "paypal.com", 
+    "facebook.com", "virustotal.com", "github.com", "binance.com", "openai.com", 
+    "chatgpt.com", "netflix.com"
+]
 
-# -----------------------------
-# 2. FEATURE ENGINEERING HELPERS
-# -----------------------------
-def calculate_entropy(text):
-    if not text: return 0
-    probs = [float(text.count(c)) / len(text) for c in set(text)]
-    return -sum(p * math.log(p, 2) for p in probs)
+HIGH_RISK_TLDS = ['cam', 'top', 'xyz', 'icu', 'live', 'bid', 'win', 'work', 'click']
+COMMON_TLDS = ["com", "org", "net", "edu", "gov", "io", "co"]
+PHISH_KEYWORDS = ["urgent", "apikey", "verify", "secure", "login", "update", "banking"]
 
-def extract_ip(url):
-    try:
-        hostname = urlparse(url).hostname
-        import socket
-        return socket.gethostbyname(hostname)
-    except:
-        return None
+# --- 3. THE SMART RISK ACCUMULATOR ---
 
-# -----------------------------
-# 3. ANALYSIS ENGINES
-# -----------------------------
-
-def get_rule_score(url):
-    """Refined rule-based scoring to reduce false positives on large URLs."""
-    score = 0
-    parsed = urlparse(url)
+def get_detailed_risk(url):
+    """
+    Calculates risk score AND returns a list of reasons for the alert.
+    """
     ext = tldextract.extract(url)
-    url_len = len(url)
+    parsed = urlparse(url)
+    score = 0.0
+    reasons = []
     
-    # Use ratios instead of counts
-    if url_len > 0:
-        if (url.count('.') / url_len) > 0.05: score += 1
-        if (url.count('-') / url_len) > 0.05: score += 1
-
-    # Suspicious keywords specifically in the path or subdomain
-    path_query = (parsed.path + parsed.query).lower()
-    score += sum(1.5 for kw in SUSPICIOUS_KEYWORDS if kw in path_query)
-    
-    # Brand impersonation in subdomain
+    # A. TLD Analysis
+    if ext.suffix in HIGH_RISK_TLDS:
+        score += 4.5
+        reasons.append(f"High-Risk TLD (.{ext.suffix})")
+    elif ext.suffix not in COMMON_TLDS:
+        score += 2.0
+        reasons.append(f"Uncommon TLD (.{ext.suffix})")
+        
+    # B. Brand Spoofing (Deep Check)
+    normalized = ext.domain.replace('1', 'i').replace('0', 'o').replace('5', 's')
     for brand in WHITELIST:
         brand_name = brand.split('.')[0]
-        if brand_name in ext.subdomain and brand_name not in ext.domain:
-            score += 3  # High suspicious flag
-            
-    return score
-
-def check_threat_intel(url):
-    """Integrated API checks."""
-    is_malicious = False
+        # Catches 'login-google.com' or 'google-support.top'
+        if brand_name in ext.domain or brand_name in normalized:
+            if f"{ext.domain}.{ext.suffix}" != brand:
+                score += 4.0
+                reasons.append(f"Impersonation of protected brand: {brand_name}")
+                break
     
-    # VirusTotal
-    try:
-        headers = {"x-apikey": VIRUSTOTAL_API_KEY}
-        resp = requests.post("https://www.virustotal.com/api/v3/urls", headers=headers, data={"url": url}, timeout=5)
-        if resp.status_code == 200:
-            stats = resp.json().get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
-            if stats.get("malicious", 0) > 0: is_malicious = True
-    except: pass
+    # C. Obfuscation Patterns
+    path_query = (parsed.path + parsed.query).lower()
+    keyword_hits = [kw for kw in PHISH_KEYWORDS if kw in path_query]
+    if keyword_hits:
+        score += (len(keyword_hits) * 1.5)
+        reasons.append(f"Phishing keywords found: {', '.join(keyword_hits)}")
+    
+    if url.count('@') > 0: # The @ symbol can hide the real domain
+        score += 3.0
+        reasons.append("URL contains '@' symbol (Credential stealing pattern)")
+        
+    if len(re.findall(r"\d", ext.domain)) > 3:
+        score += 1.5
+        reasons.append("Excessive digits in domain (DGA pattern)")
 
-    # AbuseIPDB
-    ip = extract_ip(url)
-    if ip and not is_malicious:
-        try:
-            headers = {"Key": ABUSEIPDB_API_KEY, "Accept": "application/json"}
-            resp = requests.get(f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}", headers=headers, timeout=5)
-            if resp.status_code == 200 and resp.json().get("data", {}).get("abuseConfidenceScore", 0) > 50:
-                is_malicious = True
-        except: pass
-            
-    return is_malicious
+    return score, reasons
 
-def extract_ml_features(url):
-    """Matches the exact feature set your Random Forest expects."""
-    ext = tldextract.extract(url)
-    data = {
-        "url_length": len(url),
-        "count_dots": url.count('.'),
-        "count_hyphens": url.count('-'),
-        "count_slash": url.count('/'),
-        "digit_count": sum(c.isdigit() for c in url),
-        "domain_length": len(ext.domain),
-        "subdomain_length": len(ext.subdomain),
-        "entropy": calculate_entropy(ext.domain),
-        "has_ip": 1 if re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", url) else 0
-    }
-    # Ensure DataFrame columns match the 'trained_features' list exactly
-    df = pd.DataFrame([data])
-    # Reindex to handle missing or extra columns based on your specific pkl file
-    df = df.reindex(columns=trained_features, fill_value=0)
-    return df
+# --- 4. MAIN CLASSIFIER ---
 
-# -----------------------------
-# 4. MAIN CLASSIFIER
-# -----------------------------
 def classify_url(url):
-    # Step 1: Whitelist Check
+    url = url.strip().lower()
+    if not url.startswith(('http://', 'https://')):
+        url = 'http://' + url
+
     ext = tldextract.extract(url)
     root_domain = f"{ext.domain}.{ext.suffix}"
+
+    # 1. Whitelist (Fast Exit)
     if root_domain in WHITELIST:
-        return "Safe", 0.0
+        return "Safe", 0.01, ["Verified Trusted Domain"]
 
-    # Step 2: Threat Intel (Highest Authority)
-    if check_threat_intel(url):
-        return "Malicious", 1.0
+    # 2. Risk Heuristics
+    accumulated_risk, risk_reasons = get_detailed_risk(url)
+    
+    # 3. ML Prediction
+    try:
+        data = {
+            "url_length": len(url), "count_dots": url.count('.'),
+            "count_hyphens": url.count('-'), "count_slash": url.count('/'),
+            "digit_count": sum(c.isdigit() for c in url),
+            "domain_length": len(ext.domain), "subdomain_length": len(ext.subdomain),
+            "entropy": accumulated_risk, # Feed heuristics into ML features
+            "has_ip": 1 if re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", url) else 0
+        }
+        df_feats = pd.DataFrame([data]).reindex(columns=trained_features, fill_value=0)
+        X_scaled = scaler.transform(df_feats)
+        ml_prob = clf_rf.predict_proba(X_scaled)[0][1]
+    except:
+        ml_prob = 0.5
 
-    # Step 3: ML Prediction
-    df_features = extract_ml_features(url)
-    X_scaled = scaler.transform(df_features)
-    ml_prob = clf_rf.predict_proba(X_scaled)[0][1]
+    # 4. Final Balanced Score
+    heuristic_weight = min(accumulated_risk / 7.0, 1.0)
+    final_score = (ml_prob * 0.3) + (heuristic_weight * 0.7)
 
-    # Step 4: Rule Score
-    rule_score = get_rule_score(url)
-    rule_weight = min(rule_score / 10, 1.0) # Normalize to 0-1
+    label = "Safe"
+    if final_score >= 0.75: label = "Malicious"
+    elif final_score >= 0.45: label = "Suspicious"
+    
+    return label, final_score, risk_reasons
 
-    # Step 5: Weighted Final Score
-    # ML is 70% of the decision, Rules are 30%
-    final_score = (ml_prob * 0.7) + (rule_weight * 0.3)
-
-    if final_score >= 0.75:
-        return "Malicious", final_score
-    elif final_score >= 0.4:
-        return "Suspicious", final_score
-    else:
-        return "Safe", final_score
-
-# -----------------------------
-# 5. EXECUTION
-# -----------------------------
+# --- 5. INTERFACE ---
 if __name__ == "__main__":
-    test_url = input("Enter URL: ")
-    label, score = classify_url(test_url)
-    print(f"\nResult: {label} (Score: {score:.2f})")
+    print("\n" + "="*60)
+    print("PHISHING DETECTION SYSTEM")
+    print("="*60)
+    
+    while True:
+        user_input = input("\nEnter URL (or 'exit'): ").strip()
+        if user_input.lower() == 'exit': break
+        if not user_input: continue
+
+        label, score, reasons = classify_url(user_input)
+        
+        print(f"\nResult: [{label.upper()}] | Final Risk Score: {score:.4f}")
+        if reasons:
+            print("Detected Risk Factors:")
+            for r in reasons:
+                print(f"  - {r}")
+        print("-" * 60)
