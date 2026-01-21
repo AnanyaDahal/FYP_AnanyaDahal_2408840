@@ -44,7 +44,9 @@ WHITELIST = [
 ]
 
 HIGH_RISK_TLDS = ['cam', 'top', 'xyz', 'icu', 'live', 'bid', 'win', 'work', 'click']
+
 COMMON_TLDS = ["com", "org", "net", "edu", "gov", "io", "co"]
+
 PHISH_KEYWORDS = ["urgent", "apikey", "verify", "secure", "login", "update", "banking"]
 
 # --- 3. THE SMART RISK ACCUMULATOR ---
