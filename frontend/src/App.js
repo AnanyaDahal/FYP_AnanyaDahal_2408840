@@ -41,8 +41,10 @@
 
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/login.jsx";
-import Signup from "./pages/signup.jsx";
+import Login from "./pages/login";
+import Signup from "./pages/signup";
+import Dashboard from "./pages/Dashboard";
+import "./pages/Styles.css";
 
 function App() {
   return (
@@ -51,12 +53,14 @@ function App() {
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </Router>
   );
 }
 
 export default App;
+
 
 
 
