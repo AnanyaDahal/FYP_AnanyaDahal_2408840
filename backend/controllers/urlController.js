@@ -1,95 +1,67 @@
-// // controllers/urlController.js
-
-// const { checkPhishing, isValidUrl } = require("../utils/urlChecks");
-
-// exports.checkUrl = (req, res) => {
-//     const { url } = req.body;
-
-//     // 
-//     // Validate URL using native JS
-//     if (!url || !isValidUrl(url)) {
-//         return res.status(400).json({
-//             success: false,
-//             message: "Invalid URL format."
-//         });
-//     }
-
-//     // Parse URL
-//     const urlObj = new URL(url);
-//     const components = {
-//         protocol: urlObj.protocol,
-//         hostname: urlObj.hostname,
-//         pathname: urlObj.pathname,
-//         search: urlObj.search
-//     };
-
-//     // Check phishing
-//     const { isPhishing, reason } = checkPhishing(urlObj);
-
-//     // Send JSON response
-//     res.json({
-//         success: true,
-//         url,
-//         components,
-//         isPhishing,
-//         reason: isPhishing ? reason : "No obvious phishing detected."
-//     });
-
-//     let processedUrl = url;
-// if (!/^https?:\/\//i.test(url)) {
-//     processedUrl = "http://" + url;
-// }
-
-// try {
-//     const urlObj = new URL(processedUrl);
-//     // continue with phishing check...
-// } catch {
-//     return res.status(400).json({ success: false, message: "Invalid URL format." });
-// }
-
-// };
-
-
-// backend/controllers/urlController.js
-const { isPhishingUrl, extractComponents, normalizeUrlInput } = require("../utils/urlChecks");
-const fs = require("fs");
+const { spawn } = require("child_process");
 const path = require("path");
+const Scan = require("../models/Scans");
 
-const logsDir = path.join(__dirname, "../logs");
-const logFile = path.join(logsDir, "url-log.txt");
-if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+const checkUrl = async (req, res) => {
+    const { url, userId } = req.body;
 
-// Helper log
-function logUrlCheck(url, result) {
-  const line = `${new Date().toISOString()} - URL: ${url} - Phishing: ${result.isPhishing} - Reason: ${result.reason}\n`;
-  fs.appendFile(logFile, line, err => {
-    if (err) console.error("Failed to write URL log:", err);
-  });
-}
+    if (!url) {
+        return res.status(400).json({ success: false, message: "No URL provided" });
+    }
 
-const checkUrl = (req, res) => {
-  const { url } = req.body || {};
+    // Path to your Python script
+    const scriptPath = path.join(__dirname, "../ml/URL_Detection_engine.py");
+    
+    // Start Python process
+    const pythonProcess = spawn("python", [scriptPath, url]);
 
-  if (!url || typeof url !== "string" || !url.trim()) {
-    return res.status(400).json({ success: false, message: "Please enter a URL." });
-  }
+    let pythonData = "";
+    let pythonError = "";
 
-  const normalized = normalizeUrlInput(url);
-  const components = extractComponents(normalized);
-  if (!components) {
-    return res.status(400).json({ success: false, message: "Invalid URL format." });
-  }
+    pythonProcess.stdout.on("data", (data) => {
+        pythonData += data.toString();
+    });
 
-  const result = isPhishingUrl(normalized);
-  logUrlCheck(normalized, result);
+    pythonProcess.stderr.on("data", (data) => {
+        pythonError += data.toString();
+    });
 
-  res.json({
-    success: true,
-    url: normalized,
-    components,
-    isPhishing: result.isPhishing,
-    reason: result.reason
-  });
+    pythonProcess.on("close", async (code) => {
+        if (code !== 0) {
+            console.error("Python Error:", pythonError);
+            return res.status(500).json({ success: false, message: "ML Engine Crash" });
+        }
+
+        try {
+            // FIX: Clean the data string to remove hidden newlines or spaces
+            const cleanData = pythonData.trim();
+            const analysis = JSON.parse(cleanData);
+
+            // Save to MongoDB Atlas
+            const newScan = new Scan({
+                userId: userId,
+                type: "url",
+                value: url,
+                status: analysis.status,
+                riskScore: analysis.riskScore,
+                reasons: analysis.reasons
+            });
+
+            await newScan.save();
+
+            // Send clean response to Frontend
+            res.json({
+                success: true,
+                status: analysis.status,
+                riskScore: analysis.riskScore,
+                reasons: analysis.reasons
+            });
+
+        } catch (err) {
+            console.error("JSON Parse Error. Raw Data:", `"${pythonData}"`);
+            res.status(500).json({ success: false, message: "Engine response unreadable" });
+        }
+    });
 };
 
 module.exports = { checkUrl };
