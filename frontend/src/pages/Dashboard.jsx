@@ -13,7 +13,7 @@ const Dashboard = () => {
 
   const user = {
     name: "Ananya Dahal",
-    email: "ananyadahal0159@gmail.com",
+    email: "ananyadahal@gmail.com",
   };
 
   return (
