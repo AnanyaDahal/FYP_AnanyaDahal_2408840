@@ -1,49 +1,67 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const History = () => {
+  const [scans, setScans] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const historyData = [
-    { id: 1, value: "http://secure-login-paypal.com", type: "URL", status: "Phishing", date: "2026-02-01" },
-    { id: 2, value: "support@google-secure.net", type: "Email", status: "Phishing", date: "2026-01-30" },
-    { id: 3, value: "https://github.com", type: "URL", status: "Safe", date: "2026-01-28" },
-  ];
+  useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem("user"));
+    if (savedUser) {
+      fetchHistory(savedUser._id || savedUser.id);
+    }
+  }, []);
+
+  const fetchHistory = async (userId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/scans/history/${userId}`);
+      const data = await response.json();
+      setScans(data);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div>
-      <h1 className="text-white text-3xl font-bold mb-8">Scan History</h1>
-
-      <div className="bg-[#121212] rounded-2xl shadow-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-[#1e1e1e] text-gray-400">
+    <div className="p-8 w-full min-h-screen text-white">
+      <h2 className="text-3xl font-bold mb-6 italic tracking-tighter text-cyan-400">SCAN HISTORY</h2>
+      
+      <div className="overflow-x-auto rounded-xl border border-gray-800 bg-[#121212]">
+        <table className="w-full text-left">
+          <thead className="bg-black text-cyan-400 text-xs uppercase tracking-widest">
             <tr>
-              <th className="text-left px-6 py-4">Type</th>
-              <th className="text-left px-6 py-4">Value</th>
-              <th className="text-left px-6 py-4">Status</th>
-              <th className="text-left px-6 py-4">Date</th>
-              <th className="px-6 py-4 text-right">Action</th>
+              <th className="px-6 py-4">Date</th>
+              <th className="px-6 py-4">Target URL</th>
+              <th className="px-6 py-4">Risk</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-center">Action</th>
             </tr>
           </thead>
-          <tbody>
-            {historyData.map((item) => (
-              <tr key={item.id} className="border-t border-gray-800 hover:bg-[#1a1a1a]">
-                <td className="px-6 py-4 text-gray-300">{item.type}</td>
-                <td className="px-6 py-4 text-gray-300 break-all">{item.value}</td>
+          <tbody className="divide-y divide-gray-900">
+            {scans.map((scan) => (
+              <tr key={scan._id} className="hover:bg-[#1a1a1a] transition-all">
+                <td className="px-6 py-4 text-gray-500 text-sm">
+                  {new Date(scan.createdAt).toLocaleDateString()}
+                </td>
+                <td className="px-6 py-4 text-sm truncate max-w-xs">{scan.value}</td>
+                <td className="px-6 py-4 text-cyan-400 font-mono text-sm">{scan.riskScore}%</td>
                 <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    item.status === "Phishing" ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"
+                  <span className={`font-black italic uppercase text-xs ${
+                    scan.status === 'Malicious' ? 'text-red-500' : 
+                    scan.status === 'Suspicious' ? 'text-yellow-500' : 'text-green-400'
                   }`}>
-                    {item.status}
+                    {scan.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-gray-400">{item.date}</td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => navigate(`/report/${item.id}`)}
-                    className="text-cyan-400 hover:text-cyan-300 font-medium"
+                <td className="px-6 py-4 text-center">
+                  <button 
+                    onClick={() => navigate(`/report/${scan._id}`)}
+                    className="px-4 py-1 border border-cyan-400 text-cyan-400 text-xs font-bold rounded hover:bg-cyan-400 hover:text-black transition-all"
                   >
-                    View Report
+                    VIEW REPORT
                   </button>
                 </td>
               </tr>
