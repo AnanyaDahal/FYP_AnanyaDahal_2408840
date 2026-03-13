@@ -1,7 +1,30 @@
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+
+// const UserSchema = new mongoose.Schema({
+//   name: { type: String, required: true },
+//   email: { 
+//     type: String, 
+//     required: true, 
+//     unique: true, 
+//     lowercase: true, 
+//     trim: true 
+//   },
+//   password: { type: String, required: true },
+//   createdAt: { type: Date, default: Date.now }
+// });
+
+// module.exports = mongoose.model('User', UserSchema);
+
+
+
+const mongoose = require("mongoose");
 
 const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+  name: { 
+    type: String, 
+    required: true 
+  },
+
   email: { 
     type: String, 
     required: true, 
@@ -9,8 +32,22 @@ const UserSchema = new mongoose.Schema({
     lowercase: true, 
     trim: true 
   },
-  password: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+
+  password: { 
+    type: String, 
+    required: true 
+  },
+  
+  role: {
+    type: String,
+    enum: ["user", "admin"],
+    default: "user"
+  },
+
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
 });
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.model("User", UserSchema);
