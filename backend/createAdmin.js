@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("./models/User");
 
-mongoose.connect("mongodb://127.0.0.1:27017/YOUR_DB_NAME");
+mongoose.connect("mongodb+srv://np03cs4a230171_db_user:YQjospSepVRo0zHO@cluster0.1vozob6.mongodb.net/?appName=Cluster0");
 
 async function createAdmin() {
 
