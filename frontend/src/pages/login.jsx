@@ -27,6 +27,8 @@ const Login = () => {
 
       const data = await response.json();
 
+      console.log("Login response:", data);
+
       if (response.ok) {
         // Store user data/token for session management
         localStorage.setItem("user", JSON.stringify(data.user));
