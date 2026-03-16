@@ -7,6 +7,7 @@ import Report from "../pages/Report";
 import Login from "../pages/login";
 import Signup from "../pages/signup";
 import ForgotPassword from "../pages/forgotpassword";
+import AdminDashboard from "../pages/AdminDashboard";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -20,7 +21,7 @@ function AppRoutes() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* Protected Routes */}
+      {/* User Protected Routes */}
       <Route
         element={
           <ProtectedRoute>
@@ -32,6 +33,16 @@ function AppRoutes() {
         <Route path="/history" element={<History />} />
         <Route path="/report/:id" element={<Report />} />
       </Route>
+
+      {/* Admin Route */}
+      <Route
+        path="/admin-dashboard"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
 
     </Routes>
   );
