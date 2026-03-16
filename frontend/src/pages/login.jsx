@@ -33,7 +33,12 @@ const Login = () => {
         localStorage.setItem("token", data.token); // Common practice to store JWT
         
         // Redirect to dashboard
-        navigate("/dashboard");
+        // navigate("/dashboard");
+        if (data.user.role === "admin") {
+            navigate("/admin-dashboard");
+          } else {
+            navigate("/dashboard");
+          }
       } else {
         setError(data.message || "Login failed. Please check your credentials.");
       }
