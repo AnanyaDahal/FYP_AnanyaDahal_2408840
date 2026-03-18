@@ -6,6 +6,7 @@ const Sidebar = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
     window.location.href = "/login"; // Force refresh to clear states
   };
 
