@@ -33,7 +33,7 @@ const Login = () => {
         // Store user data/token for session management
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("token", data.token); // Common practice to store JWT
-        
+
         // Redirect to dashboard
         // navigate("/dashboard");
         if (data.user.role === "admin") {
