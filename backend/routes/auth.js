@@ -58,7 +58,7 @@ router.post("/login", async (req, res) => {
     // Create JWT token with id and role
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      "SECRET_KEY",
+      process.env.JWT_SECRET || "SECRET_KEY",
       { expiresIn: "1d" }
     );
 
@@ -103,8 +103,8 @@ router.post("/forgot-password", async (req, res) => {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "fypphishingdetection@gmail.com",        
-        pass: "ffmc usyq rsri tnvk",           
+        user: process.env.FORGET_PASSWORD_EMAIL_USER || "fypphishingdetection@gmail.com",
+        pass: process.env.FORGET_PASSWORD_EMAIL_PASS || "ffmc usyq rsri tnvk",
       },
     });
 

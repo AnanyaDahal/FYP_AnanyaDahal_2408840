@@ -11,8 +11,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 3. FIX: Restored your actual MongoDB URI
-const mongoURI = "mongodb+srv://np03cs4a230171_db_user:YQjospSepVRo0zHO@cluster0.1vozob6.mongodb.net/?appName=Cluster0";
+// 3. Use environment variable for MongoDB connection
+const mongoURI = process.env.MONGO_URI || "mongodb+srv://np03cs4a230171_db_user:YQjospSepVRo0zHO@cluster0.1vozob6.mongodb.net/?appName=Cluster0";
 
 mongoose.connect(mongoURI)
   .then(() => console.log("Connected to MongoDB Atlas (Cloud)"))
