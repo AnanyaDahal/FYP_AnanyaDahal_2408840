@@ -65,11 +65,13 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// 6. SCANNING ENGINE ROUTES (Restored)
+// 6. AUTH + SCANNING ENGINE ROUTES (Restored)
+const authRoutes = require("./routes/auth");
 const urlRoutes = require("./routes/urlRoutes");
 const emailRoutes = require("./routes/emailRoutes");
 const scanRoutes = require("./routes/Scans"); 
 
+app.use("/api/auth", authRoutes);
 app.use("/api", urlRoutes);
 app.use("/api", emailRoutes);
 app.use("/api/scans", scanRoutes); 

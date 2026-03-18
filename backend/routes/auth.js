@@ -25,7 +25,7 @@ router.post("/signup", async (req, res) => {
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
-      role: "user" // 🔒 always force "user" role
+      role: "user" // always force "user" role
     });
 
     await user.save();
