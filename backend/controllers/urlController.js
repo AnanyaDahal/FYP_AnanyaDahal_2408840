@@ -3,6 +3,7 @@ const path = require("path");
 const Scan = require("../models/Scans");
 
 const checkUrl = async (req, res) => {
+    console.log("[url] analyze request", { body: req.body });
     const { url, userId } = req.body;
 
     if (!url) {
@@ -35,6 +36,7 @@ const checkUrl = async (req, res) => {
         try {
             // FIX: Clean the data string to remove hidden newlines or spaces
             const cleanData = pythonData.trim();
+            console.log("[url] python output", { code, output: cleanData });
             const analysis = JSON.parse(cleanData);
 
             // Save to MongoDB Atlas

@@ -39,6 +39,7 @@ function logEmailCheck(emailText, result) {
 }
 
 const checkEmail = (req, res) => {
+  console.log("[email] check-email request", { body: req.body });
   const { emailText } = req.body || {};
 
   if (!emailText || typeof emailText !== "string" || !emailText.trim()) {
@@ -46,6 +47,7 @@ const checkEmail = (req, res) => {
   }
 
   const analysis = analyzeEmail(emailText);
+  console.log("[email] analysis result", { totalUrls: analysis.totalUrls });
   logEmailCheck(emailText, analysis);
 
   res.json({

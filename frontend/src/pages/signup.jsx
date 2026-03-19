@@ -4,6 +4,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 const Signup = () => {
   const navigate = useNavigate();
+  const BACKEND_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
   const [formData, setFormData] = useState({
     name: "", email: "", password: "", confirmPassword: "",
   });
@@ -13,9 +15,9 @@ const Signup = () => {
   const [showConf, setShowConf] = useState(false);
 
   const validateForm = () => {
-    // 1. Name Validation (Letters and spaces only)
-    if (!/^[A-Za-z\s]+$/.test(formData.name)) {
-      return "Invalid name: Only letters and spaces are allowed.";
+    // 1. Name Validation (letters/spaces/hyphen/apostrophe allowed)
+    if (!/^[A-Za-z\s'-]+$/.test(formData.name)) {
+      return "Invalid name: only letters, spaces, hyphens, and apostrophes are allowed.";
     }
 
     // 2. Email Validation
@@ -24,7 +26,10 @@ const Signup = () => {
     }
 
     // 3. Password Complexity (1 upper, 1 number, 1 special, min 8 chars)
-    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    // Allow common punctuation (including '.' '-' '_' '+' '=' '#') so passwords
+    // like "1Qwertyuiop0.@" are accepted. Adjust the allowed special set if
+    // you want to permit more/less characters.
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.\-_+#=])[A-Za-z\d@$!%*?&.\-_+#=]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       return "Password must include 1 uppercase letter, 1 number, 1 special character, and be at least 8 characters long.";
     }
@@ -49,7 +54,7 @@ const Signup = () => {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/api/signup", {
+      const response = await fetch(`${BACKEND_URL}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,18 +94,18 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSignup} className="space-y-4">
-          <input name="name" type="text" placeholder="Full Name" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-700 text-white outline-none focus:ring-2 focus:ring-cyan-400" required />
-          <input name="email" type="email" placeholder="Email" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-800 text-white focus:ring-2 focus:ring-cyan-400" required />
+          <input name="name" type="text" value={formData.name} placeholder="Full Name" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-700 text-white outline-none focus:ring-2 focus:ring-cyan-400" required />
+          <input name="email" type="email" value={formData.email} placeholder="Email" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-800 text-white focus:ring-2 focus:ring-cyan-400" required />
           
           <div className="relative">
-            <input name="password" type={showPass ? "text" : "password"} placeholder="Password" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-800 text-white focus:ring-2 focus:ring-cyan-400 pr-12" required />
+            <input name="password" type={showPass ? "text" : "password"} value={formData.password} placeholder="Password" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-800 text-white focus:ring-2 focus:ring-cyan-400 pr-12" required />
             <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-3.5 text-gray-500 hover:text-cyan-400">
               {showPass ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
 
           <div className="relative">
-            <input name="confirmPassword" type={showConf ? "text" : "password"} placeholder="Confirm Password" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-800 text-white focus:ring-2 focus:ring-cyan-400 pr-12" required />
+            <input name="confirmPassword" type={showConf ? "text" : "password"} value={formData.confirmPassword} placeholder="Confirm Password" onChange={handleChange} className="w-full px-4 py-3 rounded-xl bg-[#1f1f1f] border border-gray-800 text-white focus:ring-2 focus:ring-cyan-400 pr-12" required />
             <button type="button" onClick={() => setShowConf(!showConf)} className="absolute right-3 top-3.5 text-gray-500 hover:text-cyan-400">
               {showConf ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>

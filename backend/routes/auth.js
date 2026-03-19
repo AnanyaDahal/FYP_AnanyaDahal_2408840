@@ -8,6 +8,7 @@ const User = require("../models/User");
 
 /* ===================== SIGNUP (USER ONLY) ===================== */
 router.post("/signup", async (req, res) => {
+  console.log("[auth] signup request", { body: req.body });
   try {
     const { name, email, password, role } = req.body; // optional role from frontend
 
@@ -40,6 +41,7 @@ router.post("/signup", async (req, res) => {
 
 /* ===================== LOGIN (USER + ADMIN) ===================== */
 router.post("/login", async (req, res) => {
+  console.log("[auth] login request", { body: req.body });
   try {
     const { email, password } = req.body;
 
@@ -82,6 +84,7 @@ router.post("/login", async (req, res) => {
 
 /* ===================== FORGOT PASSWORD ===================== */
 router.post("/forgot-password", async (req, res) => {
+  console.log("[auth] forgot-password request", { body: req.body });
   try {
     const { email } = req.body;
 
@@ -131,6 +134,7 @@ router.post("/forgot-password", async (req, res) => {
 
 /* ===================== RESET PASSWORD ===================== */
 router.post("/reset-password/:token", async (req, res) => {
+  console.log("[auth] reset-password request", { params: req.params, body: req.body });
   try {
     const { token } = req.params;
     const { password } = req.body;

@@ -11,6 +11,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Simple request logging for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} | ${req.method} ${req.url} | body: ${JSON.stringify(req.body)}`);
+  next();
+});
+
 // 3. Use environment variable for MongoDB connection
 const mongoURI = process.env.MONGO_URI || "mongodb+srv://np03cs4a230171_db_user:YQjospSepVRo0zHO@cluster0.1vozob6.mongodb.net/?appName=Cluster0";
 
