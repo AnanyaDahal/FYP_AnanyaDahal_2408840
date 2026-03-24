@@ -1,5 +1,6 @@
 const { spawn } = require("child_process");
 const path = require("path");
+const validUrl = require("valid-url");
 const Scan = require("../models/Scans");
 
 const checkUrl = async (req, res) => {
@@ -8,6 +9,14 @@ const checkUrl = async (req, res) => {
 
     if (!url) {
         return res.status(400).json({ success: false, message: "No URL provided" });
+    }
+
+    if (!userId) {
+        return res.status(400).json({ success: false, message: "No userId provided" });
+    }
+
+    if (!validUrl.isUri(url)) {
+        return res.status(400).json({ success: false, message: "Invalid URL format" });
     }
 
     // Path to your Python script
