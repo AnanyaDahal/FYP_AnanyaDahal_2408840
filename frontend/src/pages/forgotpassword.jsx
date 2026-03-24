@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Mail } from "lucide-react"; 
+import { ArrowLeft } from "lucide-react";
+import { buildApiUrl } from "../config/api";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/forgot-password", {
+      const response = await fetch(buildApiUrl("/api/auth/forgot-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -24,7 +25,7 @@ const ForgotPassword = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage("Reset link sent! Please check your email inbox.");
+        setMessage("If this email exists, a reset link has been sent.");
         setEmail(""); // Clear the input on success
       } else {
         setError(data.message || "Something went wrong. Please try again.");

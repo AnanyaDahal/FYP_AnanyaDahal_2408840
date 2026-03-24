@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { buildApiUrl } from "../config/api";
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -29,15 +30,15 @@ const ResetPassword = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/reset-password/${token}`, {
+      const response = await fetch(buildApiUrl(`/api/auth/reset-password/${token}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),

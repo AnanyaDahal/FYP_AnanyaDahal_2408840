@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { jsPDF } from "jspdf";
+import { buildApiUrl, getAuthHeaders } from "../config/api";
 
 const Report = () => {
   const { id } = useParams();
@@ -8,9 +9,14 @@ const Report = () => {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/scans/report/${id}`)
-      .then(res => res.json())
-      .then(json => setData(json))
+    fetch(buildApiUrl(`/api/scans/report/${id}`), { headers: getAuthHeaders() })
+      .then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.message || "Failed to load report");
+        }
+        setData(json);
+      })
       .catch(err => console.error("Report Load Error:", err));
   }, [id]);
 

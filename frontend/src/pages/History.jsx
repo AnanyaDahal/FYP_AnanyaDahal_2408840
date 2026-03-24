@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { buildApiUrl, getAuthHeaders } from "../config/api";
 
 const History = () => {
   const [scans, setScans] = useState([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,13 +15,18 @@ const History = () => {
 
   const fetchHistory = async (userId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/scans/history/${userId}`);
+      const response = await fetch(buildApiUrl(`/api/scans/history/${userId}`), {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch history");
+      }
+
       const data = await response.json();
       setScans(data);
     } catch (error) {
       console.error("Error fetching history:", error);
-    } finally {
-      setLoading(false);
     }
   };
 

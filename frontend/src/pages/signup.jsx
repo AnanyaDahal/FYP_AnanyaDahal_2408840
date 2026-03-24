@@ -25,13 +25,11 @@ const Signup = () => {
       return "Please enter a valid email address.";
     }
 
-    // 3. Password Complexity (1 upper, 1 number, 1 special, min 8 chars)
-    // Allow common punctuation (including '.' '-' '_' '+' '=' '#') so passwords
-    // like "1Qwertyuiop0.@" are accepted. Adjust the allowed special set if
-    // you want to permit more/less characters.
-    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.\-_+#=])[A-Za-z\d@$!%*?&.\-_+#=]{8,}$/;
+    // 3. Password Complexity (1 letter, 1 number, 1 special, min 8 chars)
+    // This accepts both uppercase/lowercase letters as long as complexity is met.
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&.\-_+#=])[A-Za-z\d@$!%*?&.\-_+#=]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
-      return "Password must include 1 uppercase letter, 1 number, 1 special character, and be at least 8 characters long.";
+      return "Password must include 1 letter, 1 number, 1 special character, and be at least 8 characters long.";
     }
 
     // 4. Match Validation

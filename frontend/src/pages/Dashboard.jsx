@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { buildApiUrl, getAuthHeaders } from "../config/api";
 
 const Dashboard = () => {
   const [textBody, setTextBody] = useState("");
@@ -19,9 +20,9 @@ const Dashboard = () => {
     setResult(prev => ({ ...prev, [type]: null }));
 
     try {
-      const response = await fetch("http://localhost:5000/api/scans/analyze", {
+      const response = await fetch(buildApiUrl("/api/scans/analyze"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ 
           userId: user?._id || user?.id, 
           type: type, 
