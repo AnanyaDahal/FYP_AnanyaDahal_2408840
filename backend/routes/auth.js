@@ -12,6 +12,10 @@ router.post("/signup", async (req, res) => {
   try {
     const { name, email, password, role } = req.body; // optional role from frontend
 
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email and password are required" });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -44,6 +48,14 @@ router.post("/login", async (req, res) => {
   console.log("[auth] login request", { body: req.body });
   try {
     const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      return res.status(500).json({ message: "JWT secret is not configured" });
+    }
 
     // Find user
     const user = await User.findOne({ email: email.toLowerCase() });
@@ -60,7 +72,7 @@ router.post("/login", async (req, res) => {
     // Create JWT token with id and role
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET || "SECRET_KEY",
+      jwtSecret,
       { expiresIn: "1d" }
     );
 
@@ -86,11 +98,21 @@ router.post("/login", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   console.log("[auth] forgot-password request", { body: req.body });
   try {
-    const { email } = req.body;
+    const { email } = req.body || {};
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ message: "A valid email is required" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: "A valid email is required" });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      // Do not reveal account existence.
+      return res.json({ message: "If this email exists, a reset link has been sent" });
     }
 
     // Generate token
@@ -102,19 +124,26 @@ router.post("/forgot-password", async (req, res) => {
 
     await user.save();
 
+    const emailUser = process.env.FORGET_PASSWORD_EMAIL_USER;
+    const emailPass = process.env.FORGET_PASSWORD_EMAIL_PASS;
+    if (!emailUser || !emailPass) {
+      return res.status(500).json({ message: "Email credentials are not configured" });
+    }
+
     // Email setup
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.FORGET_PASSWORD_EMAIL_USER || "fypphishingdetection@gmail.com",
-        pass: process.env.FORGET_PASSWORD_EMAIL_PASS || "ffmc usyq rsri tnvk",
+        user: emailUser,
+        pass: emailPass,
       },
     });
 
-    const resetLink = `http://localhost:5173/reset-password/${token}`;
+    const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetLink = `${frontendBaseUrl}/reset-password/${token}`;
 
     await transporter.sendMail({
-      to: email,
+      to: normalizedEmail,
       subject: "Password Reset",
       html: `
         <h3>Password Reset Request</h3>
@@ -124,7 +153,7 @@ router.post("/forgot-password", async (req, res) => {
       `,
     });
 
-    res.json({ message: "Reset link sent to your email" });
+    res.json({ message: "If this email exists, a reset link has been sent" });
 
   } catch (error) {
     console.error("Forgot password error:", error);
@@ -139,6 +168,14 @@ router.post("/reset-password/:token", async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
 
+    if (!token) {
+      return res.status(400).json({ message: "Missing reset token" });
+    }
+
+    if (!password || password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+
     const user = await User.findOne({
       resetToken: token,
       resetTokenExpiry: { $gt: Date.now() },
@@ -152,8 +189,8 @@ router.post("/reset-password/:token", async (req, res) => {
     user.password = await bcrypt.hash(password, salt);
 
     // Clear token fields
-    user.resetToken = undefined;
-    user.resetTokenExpiry = undefined;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
 
     await user.save();
 
