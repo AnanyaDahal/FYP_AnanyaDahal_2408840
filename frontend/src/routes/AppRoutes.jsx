@@ -9,6 +9,8 @@ import Signup from "../pages/signup";
 import ForgotPassword from "../pages/forgotpassword";
 import ResetPassword from "../pages/resetpassword";
 import AdminDashboard from "../pages/AdminDashboard";
+import AdminUsers from "../pages/AdminUsers";
+import AdminScans from "../pages/AdminScans";
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -42,6 +44,24 @@ function AppRoutes() {
         element={
           <ProtectedRoute role="admin">
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminUsers />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/scans"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminScans />
           </ProtectedRoute>
         }
       />
