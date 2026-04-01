@@ -14,7 +14,7 @@ const EmailChecker = ({ darkMode, setHistory }) => {
     setError("");
 
     try {
-      const res = await axios.post("http://localhost:5000/api/check-email", { emailText: emailText.trim() });
+      const res = await axios.post("http://localhost:5000/api/email/check-email", { emailText: emailText.trim() });
       setResult(res.data);
 
       setHistory(prev => [
