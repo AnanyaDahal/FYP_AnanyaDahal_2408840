@@ -1,129 +1,100 @@
-
-// const { analyzeEmail } = require("../utils/emailChecks");
-// const fs = require("fs");
-// const path = require("path");
-
-// const logsDir = path.join(__dirname, "../logs");
-// const logFile = path.join(logsDir, "email-log.txt");
-// if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
-
-// function logEmailCheck(emailText, result) {
-//   const line = `${new Date().toISOString()} - email-length: ${emailText.length} - totalUrls: ${result.totalUrls}\n`;
-//   fs.appendFile(logFile, line, err => {
-//     if (err) console.error("Failed to write email log:", err);
-//   });
-// }
-
-// const checkEmail = (req, res) => {
-//   console.log("[email] check-email request", { body: req.body });
-//   const { emailText } = req.body || {};
-
-//   if (!emailText || typeof emailText !== "string" || !emailText.trim()) {
-//     return res.status(400).json({ success: false, message: "Please enter email text." });
-//   }
-
-//   const analysis = analyzeEmail(emailText);
-//   console.log("[email] analysis result", { totalUrls: analysis.totalUrls });
-//   logEmailCheck(emailText, analysis);
-
-//   res.json({
-//     success: true,
-//     totalUrls: analysis.totalUrls,
-//     analysis: analysis.analysis
-//   });
-// };
-
-// module.exports = { checkEmail };
-
-
-
-
 const { spawn } = require("child_process");
 const path = require("path");
 const Scan = require("../models/Scans");
-const { analyzeEmail } = require("../utils/emailChecks");
 
-const checkEmail = async (req, res) => {
-    try {
-        const { emailText, userId } = req.body;
+exports.checkEmailStream = async (req, res) => {
+  try {
+    const { emailText, userId } = req.body;
 
-        if (!emailText || typeof emailText !== "string" || !emailText.trim()) {
-            return res.status(400).json({ success: false, message: "No email text provided." });
-        }
-
-        // Step 1: URL-level analysis
-        const urlAnalysis = analyzeEmail(emailText);
-
-        // Step 2: Call ML Python script
-        const scriptPath = path.join(__dirname, "../ml/Email_Detection_engine.py");
-
-        const pythonPath = process.env.PYTHON_PATH || "python";
-        const pythonProcess = spawn(pythonPath, [scriptPath]);
-
-        let pythonData = "";
-        let pythonError = "";
-
-        pythonProcess.stdout.on("data", (data) => pythonData += data.toString());
-        pythonProcess.stderr.on("data", (data) => pythonError += data.toString());
-
-        // send email text via stdin to avoid argv quoting issues
-        try {
-            pythonProcess.stdin.write(emailText);
-            pythonProcess.stdin.end();
-        } catch (e) {
-            console.error('Failed to write to Python stdin', e);
-        }
-
-        // Timeout after 15 seconds
-        const timeout = setTimeout(() => {
-            pythonProcess.kill();
-        }, 15000);
-
-        pythonProcess.on("close", async (code) => {
-            clearTimeout(timeout);
-
-            if (pythonError) {
-                console.error("Python Error:", pythonError);
-                return res.status(500).json({ success: false, message: "ML processing failed.", details: pythonError });
-            }
-
-            let analysis;
-            try {
-                analysis = JSON.parse(pythonData.trim());
-            } catch (err) {
-                console.error("JSON parse error:", err, "Python output:", pythonData);
-                return res.status(500).json({ success: false, message: "Invalid ML output.", details: pythonData });
-            }
-
-            // Step 3: Save scan in MongoDB
-            const newScan = new Scan({
-                userId,
-                type: "email",
-                value: emailText,
-                status: analysis.status,
-                riskScore: analysis.riskScore,
-                urls: urlAnalysis.analysis,
-                reasons: urlAnalysis.analysis
-                    .filter(u => u.isPhishing)
-                    .map(u => `Phishing URL detected: ${u.url}`)
-            });
-
-            await newScan.save();
-
-            // Step 4: Return combined result (keys expected by frontend)
-            res.json({
-                success: true,
-                status: analysis.status,
-                riskScore: analysis.riskScore,
-                totalUrls: urlAnalysis.totalUrls,
-                analysis: urlAnalysis.analysis
-            });
-        });
-
-    } catch (err) {
-        console.error("checkEmail error:", err);
-        res.status(500).json({ success: false, message: "Server error." });
+    if (!emailText) {
+      return res.status(400).json({ message: "Email text is required" });
     }
-};
 
-module.exports = { checkEmail };
+    // 1. Setup SSE Headers for Streaming
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // 2. Define path to your Python script
+    const scriptPath = path.join(__dirname, "../ml/Email_Detection_engine.py");
+    
+    // NOTE: If you use a virtual environment, change "python" to the venv path
+    // Example: path.join(__dirname, "../ml/venv/Scripts/python.exe")
+    const pythonProcess = spawn("python", [scriptPath]);
+
+    // 3. Send email text to Python
+    pythonProcess.stdin.write(emailText);
+    pythonProcess.stdin.end();
+
+    let buffer = ""; 
+
+    // 4. Listen to Python's live output
+    pythonProcess.stdout.on("data", async (data) => {
+      buffer += data.toString();
+      
+      // Split by newlines to handle multiple logs arriving at once
+      let lines = buffer.split('\n');
+      buffer = lines.pop(); // Keep incomplete chunks in the buffer
+
+      for (let line of lines) {
+        if (line.trim() === "") continue;
+
+        try {
+          const parsedLog = JSON.parse(line);
+
+          if (parsedLog.type === "progress") {
+             // Send live progress directly to React
+             res.write(`data: ${JSON.stringify(parsedLog)}\n\n`);
+          } 
+          else if (parsedLog.type === "done") {
+             // Save to database before closing
+             if (userId) {
+                try {
+                  const newScan = new Scan({
+                    userId,
+                    type: "email",
+                    value: emailText,
+                    status: parsedLog.payload.status,
+                    riskScore: parsedLog.payload.riskScore,
+                    urls: parsedLog.payload.linkAnalysis,
+                    reasons: parsedLog.payload.reasons
+                  });
+                  await newScan.save();
+                } catch (dbErr) {
+                  console.error("DB Save Error:", dbErr);
+                }
+             }
+
+             // Send final result and close connection
+             res.write(`data: ${JSON.stringify(parsedLog)}\n\n`);
+             res.end();
+          } 
+          else if (parsedLog.type === "error") {
+             res.write(`data: ${JSON.stringify(parsedLog)}\n\n`);
+             res.end();
+          }
+        } catch (err) {
+          // Ignore non-JSON output (like Python warnings)
+        }
+      }
+    });
+
+    pythonProcess.stderr.on("data", (data) => {
+      console.error(`Python Error: ${data}`);
+    });
+
+    pythonProcess.on("close", (code) => {
+      if (!res.writableEnded && code !== 0) {
+        res.write(`data: ${JSON.stringify({ type: "error", message: "Python engine crashed." })}\n\n`);
+        res.end();
+      }
+    });
+
+  } catch (error) {
+    console.error("Controller Error:", error);
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ type: "error", message: "Internal Server Error" })}\n\n`);
+      res.end();
+    }
+  }
+};

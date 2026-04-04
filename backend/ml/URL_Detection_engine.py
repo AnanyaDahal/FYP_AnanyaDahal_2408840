@@ -2,11 +2,16 @@ import os
 import re
 import sys
 import json
+import warnings
 import joblib
 import tldextract
 import pandas as pd
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+from sklearn.exceptions import InconsistentVersionWarning
+
+# Suppress noisy sklearn pickle-version warnings for runtime inference.
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 
 # --- 1. SETUP & PATHS ---
 load_dotenv()
@@ -31,7 +36,7 @@ except Exception as e:
 # Configuration
 WHITELIST = ["google.com", "microsoft.com", "paypal.com", "apple.com", "github.com", "amazon.com", "facebook.com"]
 HIGH_RISK_TLDS = ['cam', 'top', 'xyz', 'icu', 'live', 'bid', 'win', 'work', 'click']
-PHISH_KEYWORDS = ["urgent", "verify", "secure", "login", "update", "banking", "account", "signin"]
+PHISH_KEYWORDS = ["urgent", "verify", "secure", "login", "update", "banking", "account", "signin", "htp"]
 
 # --- 3. DETECTION LOGIC ---
 def get_detailed_risk(url):

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminNav from "../components/admin/AdminNav";
 import ScanResultPieChart from "../components/admin/ScanResultPieChart";
 import { getAdminStats } from "../services/adminApi";
@@ -8,6 +9,7 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -27,6 +29,15 @@ const AdminDashboard = () => {
     fetchStats();
   }, [fetchStats]);
 
+  const handleLogout = () => {
+    // Clear user and auth tokens from storage
+    localStorage.removeItem("user");
+    localStorage.removeItem("token"); 
+    
+    // Redirect to login page
+    navigate("/login");
+  };
+
   const cards = useMemo(() => {
     if (!stats) return [];
 
@@ -44,18 +55,27 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white p-8">
-      <div className="mb-8 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-gray-400">Welcome back, {user?.name}</p>
         </div>
-        <button
-          onClick={fetchStats}
-          disabled={loading}
-          className="px-4 py-2 rounded-lg border border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all disabled:opacity-50"
-        >
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={fetchStats}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg border border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all disabled:opacity-50"
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 rounded-lg border border-red-500 text-red-400 hover:bg-red-500 hover:text-black transition-all"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <AdminNav />

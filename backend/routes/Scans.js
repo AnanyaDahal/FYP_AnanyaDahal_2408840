@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { checkUrl } = require('../controllers/urlController');
+const { checkUrl, checkUrlStream } = require('../controllers/urlController');
 const Scan = require('../models/Scans');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
@@ -17,6 +17,20 @@ router.post('/analyze', authenticateToken, (req, res, next) => {
     }
 
     return checkUrl(req, res, next);
+});
+
+router.post('/analyze-stream', authenticateToken, (req, res, next) => {
+    const { userId, url } = req.body || {};
+
+    if (!userId || !url) {
+        return res.status(400).json({ message: "userId and url are required" });
+    }
+
+    if (String(req.user.id) !== String(userId)) {
+        return res.status(403).json({ message: "Forbidden" });
+    }
+
+    return checkUrlStream(req, res, next);
 });
 
 // 2. Fetch All History for a User
@@ -46,6 +60,22 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         res.json(scan);
     } catch (err) {
         res.status(500).json({ message: "Error retrieving report details" });
+    }
+});
+
+// 4. Delete a Scan (New route added here)
+router.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+        const deletedScan = await Scan.findByIdAndDelete(req.params.id);
+        
+        if (!deletedScan) {
+            return res.status(404).json({ message: "Scan not found" });
+        }
+        
+        res.json({ message: "Scan deleted successfully", id: req.params.id });
+    } catch (err) {
+        console.error("Error deleting scan:", err);
+        res.status(500).json({ message: "Failed to delete scan" });
     }
 });
 

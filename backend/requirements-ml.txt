@@ -1,0 +1,10 @@
+# Recommended: use a Python version compatible with your training environment.
+# This project loads sklearn-pickled artifacts trained with scikit-learn 1.6.1.
+
+joblib==1.5.3
+tldextract==5.3.1
+pandas==3.0.2
+python-dotenv==1.2.2
+scikit-learn==1.6.1
+torch==2.11.0
+transformers==5.5.0
