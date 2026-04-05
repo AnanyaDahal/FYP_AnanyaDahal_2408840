@@ -2,13 +2,13 @@
   "version": "1.0",
   "truncation": {
     "direction": "Right",
-    "max_length": 64,
+    "max_length": 128,
     "strategy": "LongestFirst",
     "stride": 0
   },
   "padding": {
     "strategy": {
-      "Fixed": 64
+      "Fixed": 128
     },
     "direction": "Right",
     "pad_to_multiple_of": null,
@@ -68,7 +68,7 @@
     "clean_text": true,
     "handle_chinese_chars": true,
     "strip_accents": null,
-    "lowercase": false
+    "lowercase": true
   },
   "pre_tokenizer": {
     "type": "BertPreTokenizer"
