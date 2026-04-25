@@ -53,12 +53,13 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
         const scan = await Scan.findById(req.params.id);
         if (!scan) return res.status(404).json({ message: "Report not found" });
 
-        if (String(scan.userId) !== String(req.user.id)) {
+        if (req.user.role !== 'admin' && String(scan.userId) !== String(req.user.id)) {
             return res.status(403).json({ message: "Forbidden" });
         }
 
         res.json(scan);
     } catch (err) {
+        console.error("Error retrieving report details:", err);
         res.status(500).json({ message: "Error retrieving report details" });
     }
 });
@@ -66,12 +67,16 @@ router.get('/report/:id', authenticateToken, async (req, res) => {
 // 4. Delete a Scan (New route added here)
 router.delete('/:id', authenticateToken, async (req, res) => {
     try {
-        const deletedScan = await Scan.findByIdAndDelete(req.params.id);
-        
-        if (!deletedScan) {
+        const scan = await Scan.findById(req.params.id);
+        if (!scan) {
             return res.status(404).json({ message: "Scan not found" });
         }
-        
+
+        if (req.user.role !== 'admin' && String(scan.userId) !== String(req.user.id)) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        await Scan.findByIdAndDelete(req.params.id);
         res.json({ message: "Scan deleted successfully", id: req.params.id });
     } catch (err) {
         console.error("Error deleting scan:", err);

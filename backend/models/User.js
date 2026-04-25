@@ -23,6 +23,11 @@ const UserSchema = new mongoose.Schema({
     default: "user"
   },
 
+  avatar: {
+    type: String,
+    default: null
+  },
+
   resetToken: {
     type: String,
     default: null
