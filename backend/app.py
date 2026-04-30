@@ -5,9 +5,9 @@ import os
 import pandas as pd
 
 app = Flask(__name__)
-CORS(app)  # <-- This allows your React frontend to call the API
+CORS(app)  #This allows React frontend to call the API
 
-# Load your model, scaler, and features
+# Load model, scaler, and features
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "ml", "cleaned", "rf_model.pkl")
 SCALER_PATH = os.path.join(BASE_DIR, "ml", "cleaned", "scaler.pkl")
@@ -18,9 +18,9 @@ clf = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 features = joblib.load(FEATURES_PATH)
 
-# Dummy feature extraction function (replace with your working one)
+ 
 def extract_features(url):
-    # This must match your detection_engine.py logic
+    
     return pd.DataFrame([{f: 0 for f in features}])
 
 @app.route("/predict", methods=["POST"])

@@ -4,6 +4,7 @@ import Layout from "../pages/Layout";
 import Dashboard from "../pages/Dashboard";
 import History from "../pages/History";
 import Report from "../pages/Report";
+import Profile from "../pages/profile";
 import Login from "../pages/login";
 import Signup from "../pages/signup";
 import ForgotPassword from "../pages/forgotpassword";
@@ -36,35 +37,21 @@ function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/history" element={<History />} />
         <Route path="/report/:id" element={<Report />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
 
-      {/* Admin Route */}
+      {/* Admin Routes */}
       <Route
-        path="/admin-dashboard"
         element={
           <ProtectedRoute role="admin">
-            <AdminDashboard />
+            <Layout />
           </ProtectedRoute>
         }
-      />
-
-      <Route
-        path="/admin/users"
-        element={
-          <ProtectedRoute role="admin">
-            <AdminUsers />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/scans"
-        element={
-          <ProtectedRoute role="admin">
-            <AdminScans />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/scans" element={<AdminScans />} />
+      </Route>
 
     </Routes>
   );
