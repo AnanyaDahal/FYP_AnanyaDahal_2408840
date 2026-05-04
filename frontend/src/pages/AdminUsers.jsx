@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import AdminNav from "../components/admin/AdminNav";
 import { deleteAdminUser, getAdminUsers } from "../services/adminApi";
 
 const AdminUsers = () => {
@@ -42,10 +41,18 @@ const AdminUsers = () => {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] p-8 text-white">
-      <h1 className="mb-2 text-3xl font-bold">Admin - Users</h1>
-      <p className="mb-6 text-gray-400">Manage all registered accounts.</p>
-
-      <AdminNav />
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="mb-2 text-3xl font-bold">Admin - Users</h1>
+          <p className="text-gray-400">Manage all registered accounts.</p>
+        </div>
+        <button
+          onClick={fetchUsers}
+          className="inline-flex items-center gap-2 rounded-lg border border-cyan-500 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-300 hover:bg-cyan-500 hover:text-black transition-all"
+        >
+          Refresh
+        </button>
+      </div>
 
       {message && <div className="mb-4 rounded-lg border border-green-700 bg-green-700/10 p-3 text-green-300">{message}</div>}
       {error && <div className="mb-4 rounded-lg border border-red-700 bg-red-700/10 p-3 text-red-300">{error}</div>}

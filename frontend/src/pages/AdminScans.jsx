@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
-import AdminNav from "../components/admin/AdminNav";
+import { useNavigate } from "react-router-dom";
 import { getAdminScans, deleteAdminScan } from "../services/adminApi";
 
 // Helper function to map Malicious to Phishing
@@ -10,6 +10,7 @@ const normalizeStatus = (status) => {
 };
 
 const AdminScans = () => {
+  const navigate = useNavigate();
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -91,14 +92,18 @@ const AdminScans = () => {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] p-8 text-white">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="mb-2 text-3xl font-bold">Admin - Scans</h1>
           <p className="text-gray-400">Track all scan activity across users.</p>
         </div>
+        <button
+          onClick={fetchScans}
+          className="inline-flex items-center gap-2 rounded-lg border border-cyan-500 bg-cyan-500/10 px-4 py-2 text-sm text-cyan-300 hover:bg-cyan-500 hover:text-black transition-all"
+        >
+          Refresh
+        </button>
       </div>
-
-      <AdminNav />
 
       {error && <div className="mb-4 rounded-lg border border-red-700 bg-red-700/10 p-3 text-red-300">{error}</div>}
 
@@ -186,7 +191,7 @@ const AdminScans = () => {
                   <td className="px-6 py-3 text-sm text-gray-400">{new Date(scan.createdAt).toLocaleString()}</td>
                   <td className="px-6 py-3 text-sm">{scan.userId?.name || "Unknown"}</td>
                   <td className="px-6 py-3 text-sm uppercase text-gray-300">{scan.type || "url"}</td>
-                  <td className="px-6 py-3 max-w-[360px] truncate text-sm" title={scan.value}>{scan.value}</td>
+                  <td className="px-6 py-3 max-w-[240px] truncate break-words text-sm" title={scan.value}>{scan.value}</td>
                   <td className="px-6 py-3 text-sm font-mono text-cyan-300">{scan.riskScore ?? 0}%</td>
                   <td className="px-6 py-3 text-sm">
                     <span className={`font-semibold ${
@@ -198,13 +203,24 @@ const AdminScans = () => {
                     </span>
                   </td>
                   <td className="px-6 py-3 text-sm text-right">
-                    <button 
-                      onClick={() => handleDelete(scan._id)}
-                      className="rounded bg-red-600/10 px-3 py-1 text-red-500 hover:bg-red-600 hover:text-white transition-colors"
-                      title="Delete Scan"
-                    >
-                      Delete
-                    </button>
+                    <div className="inline-flex flex-nowrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/report/${scan._id}`)}
+                        className="rounded border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-300 hover:bg-cyan-500 hover:text-black transition-colors whitespace-nowrap"
+                        title="View Report"
+                      >
+                        View Report
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleDelete(scan._id)}
+                        className="rounded border border-red-500/30 bg-red-600/10 px-3 py-1 text-red-500 hover:bg-red-600 hover:text-white transition-colors whitespace-nowrap"
+                        title="Delete Scan"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

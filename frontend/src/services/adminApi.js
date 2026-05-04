@@ -34,12 +34,12 @@ const deleteAdminUser = async (userId) => {
   return data;
 };
 
-// --- Added the deleteAdminScan function ---
+// Added the deleteAdminScan function
 const deleteAdminScan = async (scanId) => {
   // Changed from /api/admin/scans to /api/scans to match your backend Scans.js file
   const { data } = await adminClient.delete(`/api/scans/${scanId}`);
   return data;
 };
 
-// --- Added deleteAdminScan to the exports ---
+// Added deleteAdminScan to the exports
 export { getAdminStats, getAdminUsers, getAdminScans, deleteAdminUser, deleteAdminScan };
