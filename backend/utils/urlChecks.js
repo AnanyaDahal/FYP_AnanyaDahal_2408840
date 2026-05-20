@@ -34,6 +34,20 @@ const suspiciousPatterns = [
 
 // Suspicious TLDs that are commonly abused (you can extend this list)
 const suspiciousTLDs = ["cf", "tk", "ml", "ga", "gq", "xyz", "pw", "top", "site", "online"];
+const dns = require("dns").promises;
+
+async function domainExists(hostname) {
+  try {
+    await dns.lookup(hostname);
+    return true;
+  } catch (err) {
+    if (["ENOTFOUND", "ENODATA", "EAI_NONAME", "ENAMESERVOFF"].includes(err.code)) {
+      return false;
+    }
+    // Treat temporary DNS failures as non-fatal; the caller can decide how to proceed.
+    return true;
+  }
+}
 
 function normalizeUrlInput(raw) {
   // Add protocol if missing to allow URL() to parse
@@ -162,5 +176,5 @@ function extractComponents(urlStr) {
   }
 }
 
-module.exports = { isPhishingUrl, extractComponents, normalizeUrlInput };
+module.exports = { isPhishingUrl, extractComponents, normalizeUrlInput, domainExists };
 

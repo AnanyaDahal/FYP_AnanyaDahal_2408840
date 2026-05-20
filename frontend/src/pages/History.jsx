@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Filter, Eye, ShieldAlert, CheckCircle, HelpCircle } from "lucide-react";
+import { Eye, ShieldAlert, CheckCircle, HelpCircle } from "lucide-react";
 import { buildApiUrl, getAuthHeaders } from "../config/api";
 
 const History = () => {

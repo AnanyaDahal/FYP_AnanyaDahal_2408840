@@ -3,14 +3,29 @@ const { spawn } = require("child_process");
 const path = require("path");
 const validUrl = require("valid-url");
 const Scan = require("../models/Scans");
+const { normalizeUrlInput, domainExists } = require("../utils/urlChecks");
 
-const runUrlAnalysis = ({ url, userId, onProgress = () => {} }) => {
+const runUrlAnalysis = async ({ url, userId, onProgress = () => {} }) => {
+    if (!url || !userId) throw new Error("Missing URL or User ID");
+
+    const normalizedUrl = normalizeUrlInput(url);
+    if (!validUrl.isUri(normalizedUrl)) throw new Error("Invalid URL format");
+
+    onProgress({ stage: "parse", message: "Validating URL format." });
+
+    const hostname = new URL(normalizedUrl).hostname;
+    onProgress({ stage: "dns", message: "Checking whether the domain exists." });
+    const exists = await domainExists(hostname);
+    if (!exists) {
+        return {
+            success: true,
+            status: "Suspicious",
+            riskScore: 0,
+            reasons: [`Domain ${hostname} does not resolve. DNS lookup indicates the domain does not exist.`],
+        };
+    }
+
     return new Promise((resolve, reject) => {
-        if (!url || !userId) return reject(new Error("Missing URL or User ID"));
-        if (!validUrl.isUri(url)) return reject(new Error("Invalid URL format"));
-
-        onProgress({ stage: "parse", message: "Validating URL format." });
-
         const scriptPath = path.join(__dirname, "../ml/URL_Detection_engine.py");
         const pythonPath = process.env.PYTHON_PATH || "python";
 
