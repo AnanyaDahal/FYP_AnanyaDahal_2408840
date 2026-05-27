@@ -56,15 +56,14 @@ function containsBrandTypo(hostnameLower) {
     // detect simple leetspeak: e -> 3, o -> 0
     const leet = brand.replace(/o/g, "0").replace(/e/g, "3").replace(/i/g, "1").replace(/a/g, "4");
     if (hostnameLower.includes(brand) && hostnameLower !== brand && !hostnameLower.endsWith(`.${brand}`)) {
-      // e.g. mygoogle-something
       return true;
     }
     if (hostnameLower.includes(leet)) {
       return true;
     }
-    // Misspelling heuristic: brand with one char replaced or extra char (naive)
+
     if (hostnameLower.includes(brand.slice(0, 3)) && hostnameLower.length <= brand.length + 3) {
-      // possible near-match (heuristic)
+
       return true;
     }
   }

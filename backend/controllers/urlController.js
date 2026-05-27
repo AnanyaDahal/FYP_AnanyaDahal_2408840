@@ -6,17 +6,8 @@ const Scan = require("../models/Scans");
 
 const runUrlAnalysis = ({ url, userId, onProgress = () => {} }) => {
     return new Promise((resolve, reject) => {
-        if (!url) {
-            return reject(new Error("No URL provided"));
-        }
-
-        if (!userId) {
-            return reject(new Error("No userId provided"));
-        }
-
-        if (!validUrl.isUri(url)) {
-            return reject(new Error("Invalid URL format"));
-        }
+        if (!url || !userId) return reject(new Error("Missing URL or User ID"));
+        if (!validUrl.isUri(url)) return reject(new Error("Invalid URL format"));
 
         onProgress({ stage: "parse", message: "Validating URL format." });
 
@@ -44,9 +35,19 @@ const runUrlAnalysis = ({ url, userId, onProgress = () => {} }) => {
             }
 
             try {
-                const cleanData = pythonData.trim();
-                console.log("[url] python output", { code, output: cleanData });
-                const analysis = JSON.parse(cleanData);
+                // BUG FIX: Use regex to find the JSON block. 
+                // This prevents crashes if Python prints library warnings (like sklearn versions).
+                const jsonMatch = pythonData.match(/\{.*\}/s);
+                if (!jsonMatch) throw new Error("No valid JSON found in output");
+                
+                const response = JSON.parse(jsonMatch[0]);
+
+                // BUG FIX: Handle the 'payload' wrapper you added in the Python Script
+                const analysis = response.type === "done" ? response.payload : response;
+
+                if (!analysis || !analysis.status) {
+                    throw new Error("Analysis results missing in engine output");
+                }
 
                 onProgress({ stage: "persist", message: "Saving URL scan to database." });
                 const newScan = new Scan({
@@ -60,6 +61,7 @@ const runUrlAnalysis = ({ url, userId, onProgress = () => {} }) => {
 
                 await newScan.save();
 
+                // Final payload for the frontend
                 const payload = {
                     success: true,
                     status: analysis.status,
@@ -70,7 +72,7 @@ const runUrlAnalysis = ({ url, userId, onProgress = () => {} }) => {
                 onProgress({ stage: "done", message: "URL analysis complete." });
                 resolve(payload);
             } catch (err) {
-                console.error("JSON Parse Error. Raw Data:", `"${pythonData}"`);
+                console.error("JSON Parse Error. Raw Data:", `"${pythonData}"`, err);
                 reject(new Error("Engine response unreadable"));
             }
         });

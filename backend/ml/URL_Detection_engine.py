@@ -35,7 +35,7 @@ except Exception as e:
 
 # Configuration
 WHITELIST = ["google.com", "microsoft.com", "paypal.com", "apple.com", "github.com", "amazon.com", "facebook.com"]
-HIGH_RISK_TLDS = ['cam', 'top', 'xyz', 'icu', 'live', 'bid', 'win', 'work', 'click']
+HIGH_RISK_TLDS = ['cam', 'top', 'xyz', 'icu', 'live', 'bid', 'win', 'work', 'click', 'party', 'gq', 'cf', 'tk', 'ml', 'ga', 'cf', 'buzz', 'abc', 'co']
 PHISH_KEYWORDS = ["urgent", "verify", "secure", "login", "update", "banking", "account", "signin", "htp"]
 
 # --- 3. DETECTION LOGIC ---
@@ -71,7 +71,7 @@ def get_detailed_risk(url):
 
 def classify_url(url):
     url = url.strip().lower()
-    if not url.startswith(('http://', 'https://')):
+    if not url.startswith(('http://', 'https://', 'www.')):
         url = 'http://' + url
 
     ext = tldextract.extract(url)
@@ -114,17 +114,34 @@ def classify_url(url):
 
 # --- 4. EXECUTION ---
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        target_url = sys.argv[1]
-        try:
-            status, score, reasons = classify_url(target_url)
-            # Output ONLY valid JSON
-            print(json.dumps({
+    try:
+        # Check command line args first
+        if len(sys.argv) > 1:
+            target_url = sys.argv[1]
+        else:
+            target_url = sys.stdin.read().strip()
+
+        if not target_url:
+            print(json.dumps({"type": "error", "message": "No input URL provided"}), flush=True)
+            sys.exit(1)
+
+        # Run detection logic
+        status, score, reasons = classify_url(target_url)
+
+        # This output structure MUST match the controller's expectation
+        output = {
+            "type": "done",
+            "payload": {
                 "status": status,
                 "riskScore": round(float(score) * 100, 2),
                 "reasons": reasons
-            }))
-        except Exception as e:
-            print(json.dumps({"status": "Error", "message": str(e)}))
-    else:
-        print(json.dumps({"status": "Error", "message": "No input URL provided"}))
+            }
+        }
+        print(json.dumps(output), flush=True)
+
+    except Exception as e:
+        print(json.dumps({
+            "type": "error", 
+            "message": f"Python Script Error: {str(e)}"
+        }), flush=True)
+        sys.exit(1)
